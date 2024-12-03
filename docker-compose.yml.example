@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    environment:
+      - GEMINI_API_KEY=XXXXXXX
+      - HTTP_LISTEN_ADDR=0.0.0.0:3343
+    ports:
+      - 3343:3343
