@@ -54,7 +54,7 @@ curl -X GET -H "Content-Type: application/json" \
 
 ## Response Format
 
-- URL method returns: `"true"` or `"false"`
+- URL method returns: `"True"` or `"False"`
 - JSON method returns: `{"block": true}` or `{"block": false}`
 
 The URL method exists for backward compatibility with the existing system and for quick testing. The JSON method is recommended for all new implementations and should be used for the production system.
