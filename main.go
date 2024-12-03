@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,38 +14,73 @@ import (
 
 	"net/http"
 
+	"encoding/json"
+
 	"github.com/gorilla/mux"
-    "encoding/json"
 )
 
 var model *genai.GenerativeModel
-var ctx context.Context
-var requestTimeout time.Duration = 30 * time.Second
+
+//default timeout. may get overwritten with environment variables
+var requestTimeout time.Duration = 30 * time.Second 
+
+//default http listen address. may get overwritten with environment variables
+var http_addr = "0.0.0.0:3343"
 
 func main() {
+
+    //allow setting of custom timeout.
+    custom_request_Timeout, ok := os.LookupEnv("CUSTOM_REQUEST_TIMEOUT_SECONDS")
+    if ok {
+        ct, err := strconv.Atoi(custom_request_Timeout)
+        if err == nil && ct > 0 {
+            requestTimeout = time.Duration(ct) * time.Second
+        } else {
+            log.Printf(
+                "setting of custom timeout failed. %v is not a valid value (has to be an postive integer). Default is used",
+                custom_request_Timeout,
+                )
+        }
+    }
+
+    //allow setting custom http_listen_address
+    custom_http_addr, ok := os.LookupEnv("HTTP_LISTEN_ADDR")
+    if ok {
+        http_addr = custom_http_addr
+    }
+    
+    //connect the gemini client
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer client.Close()
-	model = client.GenerativeModel("gemini-1.5-flash")
 
-    data, err := os.ReadFile("./prompt.txt")
+    //allow setting what model in the api is used.
+    //defaults to gemini-1.5-flash
+    gemini_model_name, ok := os.LookupEnv("CUSTOM_GEMINI_MODEL")
+    if !ok {
+        gemini_model_name = "gemini-1.5-flash"
+    }
+    model = client.GenerativeModel(gemini_model_name)
+
+
+    //read systemprompt from prompt.txt and apply it to the model
+    system_prompt, err := os.ReadFile("./prompt.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
-    system_prompt := string(data)
     model.SystemInstruction = genai.NewUserContent(genai.Part(genai.Text(system_prompt)))
 
 
+    //routing
     r := mux.NewRouter()
     r.Use(loggingMiddleware)
 
     r.HandleFunc("/block/{comment}", blockHandler).Methods("GET")
     r.HandleFunc("/block", blockJsonHandler).Methods("GET")
     
-    http_addr := os.Getenv("HTTP_LISTEN_ADDR")
 
     srv := &http.Server{
         Handler:      r,

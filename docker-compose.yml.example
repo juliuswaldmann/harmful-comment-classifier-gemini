@@ -2,7 +2,12 @@ services:
   app:
     build: .
     environment:
+      # Required
       - GEMINI_API_KEY=XXXXXXX
+      
+      # Optional environment variables (shown with default values)
       - HTTP_LISTEN_ADDR=0.0.0.0:3343
+      - CUSTOM_GEMINI_MODEL=gemini-1.5-flash
+      - CUSTOM_REQUEST_TIMEOUT_SECONDS=30
     ports:
       - 3343:3343
