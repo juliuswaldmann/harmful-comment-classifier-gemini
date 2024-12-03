@@ -19,6 +19,7 @@ import (
 
 var model *genai.GenerativeModel
 var ctx context.Context
+var requestTimeout time.Duration = 30 * time.Second
 
 func main() {
 	ctx := context.Background()
@@ -49,8 +50,8 @@ func main() {
         Handler:      r,
         Addr:         http_addr,
 
-        WriteTimeout: 15 * time.Second,
-        ReadTimeout:  15 * time.Second,
+        WriteTimeout: requestTimeout,
+        ReadTimeout:  requestTimeout,
     }
 
     log.Printf("running http server on %v\n", http_addr)
@@ -69,13 +70,14 @@ func blockJsonHandler(w http.ResponseWriter, r *http.Request) {
     var req BlockRequest
     err := json.NewDecoder(r.Body).Decode(&req)
     if err != nil {
-        w.Write([]byte(err.Error()))
+        log.Printf("Internal Server Error: %v", err.Error())
         w.WriteHeader(http.StatusInternalServerError)
         return
     }
 
     result, err := AnalyzeText(req.Comment, model)
     if err != nil {
+        log.Printf("Internal Server Error: %v", err.Error())
         w.WriteHeader(http.StatusInternalServerError)
         return
     }
@@ -85,10 +87,12 @@ func blockJsonHandler(w http.ResponseWriter, r *http.Request) {
     }
     responseBytes, err := json.Marshal(blockResponse)
     if err != nil {
+        log.Printf("Internal Server Error: %v", err.Error())
         w.WriteHeader(http.StatusInternalServerError)
         return
     }
 
+    w.Header().Set("Content-Type", "application/json")
     w.Write(responseBytes)
 }
 
@@ -99,6 +103,7 @@ func blockHandler(w http.ResponseWriter, r *http.Request) {
 
     result, err := AnalyzeText(comment, model)
     if err != nil {
+        log.Printf("Internal Server Error: %v", err.Error())
         w.WriteHeader(http.StatusInternalServerError)
         return
     }
@@ -111,7 +116,7 @@ func blockHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func AnalyzeText(text string, model *genai.GenerativeModel) (result bool, err error){
-    ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+    ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
     defer cancel()
 
 	cs := model.StartChat()
